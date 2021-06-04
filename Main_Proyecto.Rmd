@@ -1,30 +1,320 @@
 ---
-title: "EstadisticaII_ProyectoFinal"
-author: "Humberto Olmino"
-date: "3/6/2021"
+title: "Spotify - Musica de 1922 a 2021"
+author: "Humberto Josue Olmino Alvarez"
+date: "03/5/2021"
 output: word_document
 ---
+## **La informacion obtenido y utilizada en este estudio estadistico esta basado en los datos de los archivos obtenidos del siguiente link: **
+<https://www.kaggle.com/yamaerenay/spotify-dataset-19212020-160k-tracks>
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(corrplot)
+require(stats)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(forecast)
+library(tidyverse)
+library(dplyr)
+```
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+tracks <- read.csv("tracks.csv")
+artist <- read.csv("artists.csv")
+generos <- read.csv("data_by_genres_o.csv")
+```
+###############################################################################
+## **Verificacion de los datos respecto a la duracion de las canciones**
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+**Hipotesis: **
+
+Ho = Los datos son normales
+
+H1 = Los datos no son normales
+
+```{r}
+muestreo1 <- sample_n(tracks, size= 5000)
+plot(density(muestreo1$duration_ms), col="red", lwd=2)
+media <- mean(muestreo1$duration_ms)
+abline(v=media, col ="red")
+```
+```{r}
+shapiro.test(muestreo1$duration_ms)
+```
+```{r}
+2.2e-16<0.05
 ```
 
-## R Markdown
+**R// ** *Como se puede observar, gráficamente los datos podrian ser normales con un cierto sesgo hacia la izquierda, pero se pueden observar que hay datos atipicos que se concentran en la parte derecha de la grafica. Y al usar nuestro modelo estadistico aplicando la prueba de Shapiro, obtenemos que el p-value es menor al nivel de significancia, por lo que podemos afirmar que los datos no son normales.*.  
+  
+################################################################################
+ 
+## **Habra alguna diferencia significativa entre la popularidad de la musica entre si una cancion es explicita o no?**
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+**Hipotesis: **
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+Ho = no hay diferencia entre la popularidad si la musica es explicita
+ 
+H1 = no hay diferencia entre la popularidad si la musica es explicita
 
-```{r cars}
-summary(cars)
+
+```{r}
+boxplot(tracks$popularity~tracks$explicit)
+```
+```{r}
+t.test(tracks$popularity~tracks$explicit)
+```
+```{r}
+2.2e-16<0.05
 ```
 
-## Including Plots
+**R// ** *Al observar la grafica se puede notar que hay una mayor concentracion en cuanto a la popularidad de una cancion si esta tiene contenido explicito, sin embargo se puede notar que hay una cantidad bastante grande de datos atipicos que estan por encima de la mayor concentracion de aquellas canciones que no tienen contenido explicito. Al observar el modelo estadistico confirmamos que no hay diferencia entre la popularidad de las canciones si contienen o no contenido explicito, esto debido a que, el p-value obtenido es mucho menor al nivel de significancia*.  
+  
+################################################################################
+ 
+## **Habra alguna relacion entre la musica que es bailable y si esta es popular?**
 
-You can also embed plots, for example:
+**Hipotesis: **
+ 
+Entre mas bailable sea la musica mas popular será.
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+plot(tracks$danceability, tracks$popularity, col ="green", xlab ="Rango de musica sea bailable", ylab ="Popularidad")
+abline(lm(tracks$popularity ~ tracks$danceability), col = "red", lwd = 3)
+```
+```{r}
+cor(tracks$danceability, tracks$popularity)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+**R// ** *Como se puede observar tanto en la grafica como en el modelo estadistico, no existe una correlacion evidente para confirmar que entre entre mas bailable sea la cancion mayor popularidad tiene, y se puede confirmar ya que la correlacion que devuelve el modelo de correlacion es demasiado bajo para confirmarlo*.  
+  
+################################################################################
+ 
+## **Hay alguna relacion entre la firma de tiempo de las canciones y si tienen contenido exlicito?**
+
+**Hipotesis: **
+
+Ho = Son variables independientes(no hay relacion)
+
+H1 = No son variables independientes(si hay relacion)
+```{r}
+tcont<-table(tracks$time_signature, tracks$explicit)
+mosaicplot(tcont, main=deparse("Relacion firma de tiempo y el contenido explicito"), col=c("green","red"))
+```
+```{r}
+chisq.test(tcont)
+```
+```{r}
+2.2e-16<0.05
+```
+
+**R// ** *Como se puede observar en la grafica de mosaico la relacion que existe entre la firma de tiempo que indica el compas con que se compone la pieza musical, indica que si hay una relacion respecto a lo explicita que puede ser, y al observar nuestro modelo Chi cuadrado podemos notar que el p-value devuelto es menor al nivel de significancia, confirmando que si hay una relacion entre entre la firma de tiempo y su contenido.*.  
+  
+################################################################################
+ 
+## **hay alguna correlacion entre la musica acustica en relacion a la proporcion de sonidos instrumentales?**
+
+**Hipotesis: **
+ 
+Entre mayor instrumentos musicales tenga la musica mejor sera la acustica de las canciones.
+
+```{r}
+plot(generos$instrumentalness, generos$acousticness, col ="green", xlab ="Proporcion sonidos instrumentales", ylab ="Acustica de la musica")
+
+abline(lm(generos$acousticness ~ generos$instrumentalness), col = "red", lwd = 3)
+```
+```{r}
+cor(generos$instrumentalness, generos$acousticness)
+```
+
+**R// ** *Observando la grafica se puede notar que puede haber una correlacion entre la proporcion de sonidos instrumentales y la acustica de ésta, sin embargo podemos notar que la correlacion devuelta por nuestro modelo estadistico nos indica lo contrario, el valor de correlacion es muy bajo por lo que no hay sufienciente evidencia de que haya correlacion entre estos dos tipos de datos de información*.  
+  
+################################################################################
+ 
+## **Se puede decir que la musica con contenido exlicito tiene igual duracion que la musica que no lo es?**
+
+Ho = La duracion de las canciones con contenidos explicito no tienen una diferente duracion a las que no lo tienen
+
+H1 = La duracion de las canciones con contenidos explicito tienen una diferente duracion a las que no lo tienen
+
+```{r}
+boxplot(duration_ms ~ explicit, data = tracks)
+```
+```{r}
+t.test(tracks$duration_ms ~ tracks$explicit, alternative = "two.sided")
+```
+```{r}
+2.2e-16<0.05
+```
+
+
+**R// ** *Debido a que el grafico al tener demasiados datos atipicos nos basaremos en nuestro modelo de la prueba T, al observar en valor p-value devuelto tenemos una evidencia calculable que nos indica que confirmamos que si hay una duracion diferente en cuanto a contenido explicito tienen las canciones.*  
+  
+################################################################################
+ 
+## **Existe alguna diferencia entre que tan energicas son las canciones con el modo mayor o menor del genero musical?**
+
+**Hipotesis: **
+ 
+Ho = no hay diferencia entre que tan energicas son las canciones en los modos del genero musical
+ 
+H1 = si hay diferencia entre que tan energicas son las canciones en los modos del genero musical
+
+```{r}
+boxplot(generos$energy~generos$mode)
+```
+```{r}
+t.test(generos$energy~generos$mode)
+```
+```{r}
+1.73e-05<0.05
+```
+
+**R// ** *El modo de las canciones en modo mayor o menor puede afectar cuan energica puede ser una cancion, y aun observando las graficas podemos notar que la mayor concentracion de los datos para el modo menor son mas energicas que cuando se encuentran en el modo mayor, por lo que hay suficiente evidencia para confirmar nuestra hipotesis alternativa*.  
+  
+################################################################################
+ 
+## **Existe una relacion correlativa entre el numero de palabras en las canciones y que tan fuerte son las canciones?**
+
+**Hipotesis: **
+ 
+Entre mayor numero de palabras mas fuerte sonaran las canciones.
+
+```{r}
+plot(tracks$speechiness, tracks$loudness, col ="green", xlab ="Numero de palabras en las canciones", ylab ="nivel de volumen en las canciones")
+
+abline(lm(generos$loudness ~ generos$speechiness), col = "red", lwd = 3)
+```
+```{r}
+cor(tracks$speechiness, tracks$loudness)
+```
+
+**R// ** *Como se puede observar la correlacion entre la cantidad de palabras y el volumen de una cancion no tienen una relacion, debido a la evidencia mostrada por nuestro modelo de correlacion, que indica que no hay evidencia necesaria para afirmar nuestra hipotesis.*.  
+  
+################################################################################
+ 
+## **Existe una diferencia significativa entre el modo en que se encuentra el genero musical y las teclas en octavas codificada?**
+ 
+**Hipotesis: **
+ 
+Ho = Son variables independientes(no hay relacion)
+ 
+H1 = No son variables independientes(si hay relacion)
+```{r}
+tcont<-table(tracks$mode, tracks$key)
+mosaicplot(tcont, main=deparse("Relacion entre el modo del genero y las teclas en octava codificadas"), col=c("green","red"))
+```
+```{r}
+chisq.test(tcont)
+```
+```{r}
+2.2e-16<0.05
+```
+
+
+**R// ** *Dada la informacion proporciona por el grafico de mosaico se puede notar que no hay una relacion muy definida, por otra parte al usar el modelo de Chi cuadrado notamos que el p-value devuelto es menor al nivel de significancia, indicando que hay evidencia sufienciente para indicar que no son variables independientes y que tiene relacion una de la otra*.  
+  
+################################################################################
+ 
+## **Existe alguna diferencia entre que la cantidad de audiencia en las canciones respecto al modo en que se encuentren las canciones?**
+ 
+**Hipotesis: **
+ 
+Ho = no hay diferencia entre la cantidad de audiencia respecto al modo en que se encuentran las canciones
+ 
+H1 = si hay diferencia entre la cantidad de audiencia respecto al modo en que se encuentran las canciones
+```{r}
+boxplot(tracks$liveness~tracks$mode)
+```
+```{r}
+t.test(tracks$liveness~tracks$mode)
+```
+```{r}
+6.032e-08<0.05
+```
+
+**R// ** *Observando la grafica notamos que encuanto al modo del genero musical no existe una diferencia notable graficamente respecto al nivel de audiencia, dado que la cantidad de datos atipicos es demasiado grande, pero al boservar nuestro modelo de la Prueba T, notamos que si existe una diferencia entre el modo que se encuentre una cancion, por lo que hay evidencia suficiente para afirmar nuestra hipotesis alternativa*.  
+  
+################################################################################
+ 
+## **Existe una diferencia significativa entre las teclas en octava codificadas y el tempo en las canciones por genero?**
+ 
+**Hipotesis: **
+ 
+Ho = no hay diferencia entre las medias del tempo por las teclas en octava codificadas.
+ 
+H1 = al menos un par de medias son signficativamente distintas en el tempo.
+
+```{r}
+boxplot(tempo ~ key, data = generos)
+```
+```{r}
+anova<- aov(generos$tempo~generos$key)
+summary(anova)
+```
+```{r}
+8.38e-06<0
+```
+
+**R// ** *Al observar la grafica podemos notar que la mediana de los datos en cualquiera de las teclas en octava codificada se mantiene cerca del tempo de 120-130, y dado nuestra prueba Anova, el valor devuelto por el p-value con un nivel de significancia de 0, podemos no rechazar nuestra hipotesis nula, que indica que no hay diferencia entre las medias de los grupos de datos. *.  
+  
+################################################################################
+ 
+## **Hay alguna relacion entre el tempo y la energia de la cancion?**
+ 
+**Hipotesis: **
+ 
+Entre mayor sea el tempo mas energica sera la cancion.
+```{r}
+plot(generos$tempo, generos$energy, col ="green", xlab ="tempo de la cancion", ylab ="energia de la cancion")
+abline(lm(generos$energy ~ generos$tempo), col = "red", lwd = 3)
+```
+```{r}
+cor(generos$tempo, generos$energy)
+```
+
+**R// ** *En la grafica podemos observar que la correlatividad entre el tempo y la energia que tiene la cancion, aumenta directamente, sin embargo al observar nuestro modelo de correlacion, el valor obtenido es medianamente correlacionado, sin embargo no es una evidencia suficiente para indicar que si hay correlacion entre los datos*.  
+  
+################################################################################
+ 
+## **Existe alguna diferencia entre el modo en que se encuentra una cancion y que tan bailable es la cancion?**
+ 
+**Hipotesis: **
+ 
+Ho = no hay diferencia entre que tan bailable es la cancion respecto al modo en que se encuentre
+ 
+H1 = si hay diferencia entre que tan bailable es la cancion respecto al modo en que se encuentre
+```{r}
+boxplot(tracks$danceability~tracks$mode)
+```
+```{r}
+t.test(tracks$danceability~tracks$mode)
+```
+```{r}
+2.2e-16<0.05
+```
+
+**R// ** *En la grafica se puede observar que la diferencia en que se encuentran concentrados los datos del modo mayor o menor de las canciones es ligeramente diferente aunque no tanto para indicar una diferencia significativa. Por otro lado observando los datos mostrados por nuestro Prueba T, nos da la evidencia sificiente para indicar que si hay diferencia en los datos y confirmamos nuestra hipotesis alternativa*.  
+  
+################################################################################
+ 
+## **Existe una diferencia significativa entre las medias de los grupos de la musica respecto al nivel de sonido y las teclas en octava de las canciones?**
+ 
+**Hipotesis: **
+ 
+Ho = no hay diferencia entre las medias del nivel de sonido respecto a las teclas en octava de las canciones.
+ 
+H1 = al menos un par de medias son signficativamente distintas en cuanto al nivel de sonido respecto a las teclas en octava de las canciones.
+
+```{r}
+anova<- aov(generos$loudness~generos$key)
+boxplot(loudness ~ key, data = generos)
+```
+```{r}
+summary(anova)
+```
+```{r}
+5.87e-06<0
+```
+
+
+**R// ** *Graficamente podemos observar que la concentracion de los datos por las teclas de octava y el nivel de volumen de las canciones se concentra cerca de -10dB, y usando nuestro modelo estadistica podemos observar claramente que el p-value devuelto no es menor al nivel de significancia utilizado por el modelo anova, indicando que no hay evidencia suficiente para no rechazar la hipotesis nula de que hay diferencia en las medias de los grupos de datos.*.
+
